@@ -1,0 +1,88 @@
+name: Build Zed Chinese Release (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - chinese-l10n
+
+jobs:
+  build-windows:
+    name: Build Zed Windows x86_64 (Chinese)
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      CARGO_HOME: "C:/c"
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+      ZED_UPDATE_EXPLANATION: "当前运行的是 Zed 简体中文版，自动更新已禁用以避免覆盖汉化。如需获取最新版本，请前往 GitHub 仓库发布页下载。"
+
+    steps:
+      - name: Enable Windows Long Paths & Git Long Paths
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1 -Force
+          git config --system core.longpaths true
+          git config --global core.longpaths true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+          targets: x86_64-pc-windows-msvc, wasm32-wasip2
+
+      - name: Build Zed (Release)
+        shell: pwsh
+        run: |
+          cargo build --release --package zed
+
+      - name: Package Windows Artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force
+          Copy-Item "target/release/zed.exe" -Destination "dist/"
+          if (Test-Path "target/release/cli.exe") {
+            Copy-Item "target/release/cli.exe" -Destination "dist/"
+          }
+          if (Test-Path "target/release/conpty.dll") {
+            Copy-Item "target/release/conpty.dll" -Destination "dist/"
+          }
+          if (Test-Path "target/release/OpenConsole.exe") {
+            Copy-Item "target/release/OpenConsole.exe" -Destination "dist/"
+          }
+          Compress-Archive -Path dist/* -DestinationPath zed-windows-x86_64-chinese.zip
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-windows-chinese
+          path: zed-windows-x86_64-chinese.zip
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        with:
+          tag_name: v1.26.2-chinese
+          name: "Zed 简体中文版 v1.26.2"
+          body: |
+            ### Zed 简体中文版 (Windows x86_64) - v1.26.2
+            - 基于官方最新稳定发布版本 **v1.26.2** 进行全量深度汉化
+            - **全量汉化设置界面 (Settings UI)**：覆盖所有 15 个设置页面分类、92 个段落标题、438 项配置标题与详细说明、下拉选择菜单
+            - **汉化全部编辑器核心组件**：菜单栏、命令面板、项目面板、状态栏、内置终端、AI 助手对话及 Git 集成
+            - **内置版本保护机制**：禁用官方英文自动更新提示，杜绝自动更新覆盖汉化
+          files: zed-windows-x86_64-chinese.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
