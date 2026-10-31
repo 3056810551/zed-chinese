@@ -1229,12 +1229,12 @@ impl SettingsPageItem {
                                 .relative()
                                 .w_full()
                                 .max_w_1_2()
-                                .child(Label::new(i18n::t(&sub_page_link.title)))
+                                .child(Label::new(i18n::t_shared(&sub_page_link.title)))
                                 .when_some(
                                     sub_page_link.description.as_ref(),
                                     |this, description| {
                                         this.child(
-                                            Label::new(description.clone())
+                                            Label::new(i18n::t_shared(description))
                                                 .size(LabelSize::Small)
                                                 .color(Color::Muted),
                                         )
@@ -1246,7 +1246,7 @@ impl SettingsPageItem {
                                 ("sub-page".into(), sub_page_link.title.clone()),
                                 "配置",
                             )
-                            .aria_label(format!("Configure {}", sub_page_link.title))
+                            .aria_label(format!("配置 {}", i18n::t_shared(&sub_page_link.title)))
                             .tab_index(0_isize)
                             .end_icon(
                                 Icon::new(IconName::ChevronRight)
